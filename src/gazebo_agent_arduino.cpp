@@ -113,14 +113,6 @@ inline ignition::math::Matrix3d Mat3dToGazebo(const Eigen::Matrix3d &_x)
                                     _x(2, 0), _x(2, 1), _x(2, 2));
 }
 
-ignition::math::Vector3d flowVel;
-Eigen::Matrix6d Ma;
-Eigen::Matrix6d Ca;
-Eigen::Matrix6d D;
-
-Eigen::Matrix6d Kp;
-Eigen::Matrix6d Kd;
-
 struct Quaternion
 {
     double w, x, y, z;
@@ -158,7 +150,6 @@ EulerAngles ToEulerAngles(Quaternion q)
 using namespace std;
 
 ofstream fout;
-int ccount = 0;
 
 int real_time = 0;
 
@@ -175,9 +166,8 @@ ros::Publisher *pub_thruster3_ptr;
 ros::Publisher *pub_thruster4_ptr;
 ros::Publisher *pub_thruster5_ptr;
 
-int cont_recovery = 0;
 int cont_target = 0;
-//for AHRS_3DM_GX5----------------------
+// for AHRS_3DM_GX5----------------------
 volatile int serial_count = 0;
 volatile uint8_t inputString[100];    // a String to hold incoming data
 volatile bool stringComplete = false; // whether the string is complete
@@ -207,7 +197,7 @@ volatile float pre_yaw = 0;
 volatile float yaw_calib2 = 0;
 //--------------------------------------
 
-//for Trusters-------------------------
+// for Trusters-------------------------
 volatile int pwm_m0 = 1500, pid_pwm_m0;
 volatile int pwm_m1 = 1500, pid_pwm_m1;
 volatile int pwm_m2 = 1500, pid_pwm_m2;
@@ -216,12 +206,12 @@ volatile int pwm_m4 = 1500, pid_pwm_m4;
 volatile int pwm_m5 = 1500, pid_pwm_m5;
 //--------------------------------------
 
-//for depth sensor---------------------
+// for depth sensor---------------------
 double depth;
 double pre_depth = 0;
 //--------------------------------------
 
-//for Control yaw and depth---------------------
+// for Control yaw and depth---------------------
 volatile uint8_t cont_yaw_on = 0;
 volatile uint8_t cont_depth_on = 0;
 
@@ -251,7 +241,7 @@ double P_depth, I_depth, D_depth, PID_depth;
 double desired_angle_depth = 55;
 //--------------------------------------
 
-//for Control position---
+// for Control position---
 volatile uint8_t cont_direc = 0;
 volatile int move_speed = 10;
 volatile int added_move_speed = 0;
@@ -284,7 +274,7 @@ double target_usbl_y = 0;
 double target_usbl_z = 0;
 //-----------
 
-//for Control taesik---
+// for Control taesik---
 volatile uint8_t cont_taesik = 0;
 
 volatile uint8_t cont_model = 0;
@@ -293,12 +283,6 @@ volatile uint8_t cont_fout = 0;
 volatile uint8_t cont_tank_sim = 0;
 //-----------
 
-float ipcam_qr_x = 0;
-float ipcam_qr_y = 0;
-float ipcam_qr_z = 0;
-float ipcam_qr_yaw = 0;
-int ipcam_qr_valid = 0;
-
 int yaw_stage = 0;
 
 int target_end_count = 0;
@@ -306,8 +290,7 @@ int target_end_count = 0;
 void PID_control_yaw();
 void PID_control_depth();
 void esc_input(uint8_t ID, uint16_t pwm0, uint16_t pwm1, uint16_t pwm2);
-void recovery_cont();
-void target_cont();
+
 void Control_taesik();
 
 float target_x_position = 34.154;
@@ -326,15 +309,6 @@ float target_yaw = 0;
 
 float Target_target_position = 0.5;
 
-void messageCont_IPCAM(const ros_opencv_ipcam_qr::hero_ipcam_qr_msg::ConstPtr &ipcam_msg)
-{
-    ipcam_qr_x = ipcam_msg->T_X;
-    ipcam_qr_y = ipcam_msg->T_Y;
-    ipcam_qr_z = ipcam_msg->T_Z;
-    ipcam_qr_yaw = ipcam_msg->T_YAW;
-    ipcam_qr_valid = ipcam_msg->T_valid;
-}
-
 void messageCont_YOLO(const hero_msgs::hero_xy_cont::ConstPtr &yolo_msg)
 {
     object_x = yolo_msg->TARGET_X;
@@ -349,104 +323,61 @@ void messageCommand(const std_msgs::Int8::ConstPtr &command_msg)
 
     if (Command == 'q')
     {
-       cont_direc = 0;
+        cont_direc = 0;
     }
-    else if (Command == 'w') //backward
+    else if (Command == 'w') // backward
     {
-      
         cont_direc = 1;
     }
-    else if (Command == 's') //forward
+    else if (Command == 's') // forward
     {
-        
         cont_direc = 2;
     }
-    else if (Command == 'a') //right
+    else if (Command == 'a') // right
     {
-       
-
         cont_direc = 3;
     }
-    else if (Command == 'd') //left
+    else if (Command == 'd') // left
     {
-       
         cont_direc = 4;
     }
-    else if (Command == 'n')
+    else if (Command == 'n')    //init yaw sensor data
     {
+        desired_angle_yaw = 0;
         yaw_calid_command = 1;
     }
-    else if (Command == '5') //concon
+    else if (Command == '5') // yolo based control
     {
         cont_direc = 5;
     }
-    else if (Command == '1') //concon
-    {
-        target_usbl_x = 1.5;
-        target_usbl_y = 0;
-        target_usbl_z = 0.08;
-        cont_target = 1;
-        target_end_count = 0;
-    }
-    /*
-    else if (Command == '2') //concon
-    {
-        cont_recovery = 1;
-    }
-    else if (Command == '3') //concon
-    {
-        cont_recovery = 0;
-        yaw_stage = 0;
-    }*/
-    else if (Command == '2') //concon
-    {
-        target_usbl_x = 3.5;
-        target_usbl_y = 0;
-        target_usbl_z = 1.95;
-        cont_target = 1;
-        target_end_count = 0;
-    }
-    else if (Command == '3') //concon
-    {
-        cont_target = 0;
-    }
-    else if (Command == '4') //concon
-    {
-        target_usbl_x = 0.9;
-        target_usbl_y = 0;
-        target_usbl_z = 0.08;
-        cont_target = 1;
-        target_end_count = 0;
-    }
-    else if (Command == 'z') //left
+    else if (Command == 'z') // left
     {
         move_speed += 10;
     }
-    else if (Command == 'x') //right
+    else if (Command == 'x') // right
     {
         move_speed -= 10;
     }
     else if (Command == 'e')
     {
-        //digitalWrite(RELAY, HIGH);
-        //delay(5000);
+        // digitalWrite(RELAY, HIGH);
+        // delay(5000);
     }
     else if (Command == 't')
     {
-        //digitalWrite(RELAY, LOW);
+        // digitalWrite(RELAY, LOW);
     }
     else if (Command == 'r')
     {
-        //digitalWrite(LED_SIG, HIGH);
+        // digitalWrite(LED_SIG, HIGH);
     }
     else if (Command == 'f')
     {
-        //digitalWrite(LED_SIG, LOW);
+        // digitalWrite(LED_SIG, LOW);
     }
     else if (Command == 'c')
     {
-
-        //OCR1A = 450; //open gripper
+        // OCR1A = 450; //open gripper
         joint_msg.data = -2;
         pub_joint1_ptr->publish(joint_msg);
         joint_msg.data = 2;
@@ -454,7 +385,7 @@ void messageCommand(const std_msgs::Int8::ConstPtr &command_msg)
     }
     else if (Command == 'v')
     {
-        //OCR1A = 350; //stop gripper
+        // OCR1A = 350; //stop gripper
         joint_msg.data = 0;
         pub_joint1_ptr->publish(joint_msg);
         joint_msg.data = 0;
@@ -462,7 +393,7 @@ void messageCommand(const std_msgs::Int8::ConstPtr &command_msg)
     }
     else if (Command == 'b')
     {
-        //OCR1A = 300; //close gripper
+        // OCR1A = 300; //close gripper
         joint_msg.data = 2;
         pub_joint1_ptr->publish(joint_msg);
         joint_msg.data = -2;
@@ -470,7 +401,6 @@ void messageCommand(const std_msgs::Int8::ConstPtr &command_msg)
     }
     else if (Command == 'g')
     {
-
         pwm_m0 = 1500;
         pwm_m1 = 1500;
         pwm_m2 = 1500;
@@ -524,16 +454,10 @@ void messageCommand(const std_msgs::Int8::ConstPtr &command_msg)
     else if (Command == 'p')
     {
         cont_depth_on = 1;
-
-        Kp(0, 0) += 1;
-        Kp(1, 1) += 1;
     }
     else if (Command == ';')
     {
         cont_depth_on = 0;
-
-        Kp(0, 0) -= 1;
-        Kp(1, 1) -= 1;
     }
     else if (Command == '/')
     {
@@ -551,10 +475,9 @@ void messageCommand(const std_msgs::Int8::ConstPtr &command_msg)
     state_msg.Move_speed = move_speed;
     state_msg.State_addit = cont_target;
 
-    //state_msg.Move_speed = cont_drag;
+    // state_msg.Move_speed = cont_drag;
 
     pub_state_ptr->publish(state_msg);
-    ccount = 0;
 }
 
 //--------------------------------------------
@@ -621,7 +544,7 @@ void msgCallback_imu(const sensor_msgs::Imu::ConstPtr &msg)
     pre_yaw = yaw;
     yaw += 3.141592 * yaw_calib * 2;
     //
-    //yaw control loop
+    // yaw control loop
     if (cont_yaw_on == 1)
         PID_control_yaw();
 }
@@ -635,47 +558,6 @@ void msgCallback_depth(const sensor_msgs::FluidPressure::ConstPtr &msg)
     pre_depth = depth;
     if (cont_depth_on == 1)
         PID_control_depth();
-}
-
-geometry_msgs::Point cy_position;
-geometry_msgs::Point ag_position;
-
-geometry_msgs::Point pre_ag_position;
-ignition::math::Vector3d F_drag;
-float pre_agent_z = 0;
-
-EulerAngles cy_angles;
-
-void msgCallback_cypose(const nav_msgs::Odometry::ConstPtr &msg)
-{
-    cy_position = msg->pose.pose.position;
-
-    Quaternion Q_angles;
-
-    Q_angles.x = msg->pose.pose.orientation.x;
-    Q_angles.y = msg->pose.pose.orientation.y;
-    Q_angles.z = msg->pose.pose.orientation.z;
-    Q_angles.w = msg->pose.pose.orientation.w;
-    cy_angles = ToEulerAngles(Q_angles);
-}
-
-void msgCallback_USBL(const nav_msgs::Odometry::ConstPtr &msg)
-{
-    ag_position = msg->pose.pose.position;
-
-    agent_pose.Pos().X() = msg->pose.pose.position.x;
-    agent_pose.Pos().Y() = msg->pose.pose.position.y;
-    agent_pose.Pos().Z() = msg->pose.pose.position.z;
-    agent_pose.Rot().X() = msg->pose.pose.orientation.x;
-    agent_pose.Rot().Y() = msg->pose.pose.orientation.y;
-    agent_pose.Rot().Z() = msg->pose.pose.orientation.z;
-    agent_pose.Rot().W() = msg->pose.pose.orientation.w;
-
-    usbl_x = cos(cy_angles.yaw - atan((cy_position.y - ag_position.y) / (cy_position.x - ag_position.x))) * sqrt((cy_position.x - ag_position.x) * (cy_position.x - ag_position.x) + (cy_position.y - ag_position.y) * (cy_position.y - ag_position.y));
-    usbl_y = -sin(cy_angles.yaw - atan((cy_position.y - ag_position.y) / (cy_position.x - ag_position.x))) * sqrt((cy_position.x - ag_position.x) * (cy_position.x - ag_position.x) + (cy_position.y - ag_position.y) * (cy_position.y - ag_position.y));
-    usbl_z = cy_position.z - ag_position.z;
-
-    //fs << msg->pose.pose.position.x << " " << msg->pose.pose.position.y << " " << msg->pose.pose.position.z << " " << cy_position.x << " " << cy_position.y << " " << cy_position.z << endl;
 }
 
 int main(int argc, char **argv) // Node Main Function
@@ -723,46 +605,7 @@ int main(int argc, char **argv) // Node Main Function
 
     ros::Subscriber sub_command = nh.subscribe("/hero_agent/command", 100, messageCommand);
     ros::Subscriber sub_yolo_msg = nh.subscribe("/hero_agent/xy", 100, messageCont_YOLO);
-    ros::Subscriber sub_ipcom_qr_msg = nh.subscribe("/hero_agent/hero_ipcam_qr_msg", 100, messageCont_IPCAM);
-
-    ros::Subscriber sub_ag_pose = nh.subscribe("/hero_agent/pose_gt", 100, msgCallback_USBL);
-    ros::Subscriber sub_cy_pose = nh.subscribe("/cyclops/pose_gt", 100, msgCallback_cypose);
-
-    ros::Publisher pub_usbl_agent =
-        nh.advertise<hero_msgs::hero_usbl_cont>("/hero_agent/usbl", 100);
-
-    ros::Publisher pub_graph =
-        nh.advertise<geometry_msgs::Point>("/hero_agent/graph", 100);
-
-    geometry_msgs::Point graph_position;
-
-    hero_msgs::hero_usbl_cont hero_usbl_msg;
-    /*
-    ros::Subscriber sub_usbl =
-        nh.subscribe("/hero_agent/usbl_transceiver_agent", 100, msgCallback_usbl);
  
-    
-    hero_msgs::hero_usbl_cont hero_usbl_msg;
-    hero_msgs::hero_yolo_cont hero_yolo_msg;
-*/
-    for (int row = 0; row < 6; row++)
-        for (int col = 0; col < 6; col++)
-        {
-            Ma(row, col) = 0.0;
-            D(row, col) = 0.0;
-            Ca(row, col) = 0.0;
-            Kp(row, col) = 0.0;
-            Kd(row, col) = 0.0;
-        }
-
-    Kp(0, 0) = 5;
-    Kp(1, 1) = 5;
-    Kp(2, 2) = 1;
-
-    Kd(0, 0) = 0.1;
-    Kd(1, 1) = 0.1;
-    Kd(2, 2) = 5;
-
     cout << "Start!" << endl;
     while (ros::ok())
     {
@@ -775,23 +618,6 @@ int main(int argc, char **argv) // Node Main Function
 
         pub_sensors.publish(sensors_msg);
 
-        hero_usbl_msg.TARGET_X = usbl_x;
-        hero_usbl_msg.TARGET_Y = usbl_y;
-        hero_usbl_msg.TARGET_Z = usbl_z;
-
-        pub_usbl_agent.publish(hero_usbl_msg);
-        // pub_yolo_agent.publish(hero_yolo_msg);
-
-        if (cont_recovery == 1)
-        {
-            recovery_cont();
-        }
-
-        if (cont_target == 1)
-        {
-            target_cont();
-        }
-
         loop_rate.sleep();
         ros::spinOnce();
     }
@@ -802,8 +628,8 @@ int main(int argc, char **argv) // Node Main Function
 
 void PID_control_yaw()
 {
-    error_yaw = desired_angle_yaw - yaw;            //angle def
-    P_angle_pid_yaw = P_angle_gain_yaw * error_yaw; //angle def + outer P control
+    error_yaw = desired_angle_yaw - yaw;            // angle def
+    P_angle_pid_yaw = P_angle_gain_yaw * error_yaw; // angle def + outer P control
 
     error_pid_yaw = P_angle_pid_yaw - acc_yaw; // Pcontrol_angle - angle rate = PID Goal
 
@@ -814,45 +640,45 @@ void PID_control_yaw()
 
     PID_yaw = P_yaw + D_yaw + I_yaw;
 
-    if (cont_direc == 0) //stop
+    if (cont_direc == 0) // stop
     {
         pwm_m1 = -PID_yaw - throttle + 1500;
         pwm_m2 = -PID_yaw + throttle + 1500;
         pwm_m4 = -PID_yaw - throttle + 1500;
         pwm_m5 = -PID_yaw + throttle + 1500;
     }
-    else if (cont_direc == 1) //forward
+    else if (cont_direc == 1) // forward
     {
         pwm_m1 = -PID_yaw - throttle + 1500 + move_speed;
         pwm_m2 = -PID_yaw + throttle + 1500 + move_speed;
         pwm_m4 = -PID_yaw - throttle + 1500 - move_speed;
         pwm_m5 = -PID_yaw + throttle + 1500 - move_speed;
     }
-    else if (cont_direc == 2) //backward
+    else if (cont_direc == 2) // backward
     {
         pwm_m1 = -PID_yaw - throttle + 1500 - move_speed;
         pwm_m2 = -PID_yaw + throttle + 1500 - move_speed;
         pwm_m4 = -PID_yaw - throttle + 1500 + move_speed;
         pwm_m5 = -PID_yaw + throttle + 1500 + move_speed;
     }
-    else if (cont_direc == 3) //left
+    else if (cont_direc == 3) // left
     {
         pwm_m1 = -PID_yaw - throttle + 1500 + move_speed - added_move_speed;
         pwm_m2 = -PID_yaw + throttle + 1500 - move_speed - added_move_speed;
         pwm_m4 = -PID_yaw - throttle + 1500 - move_speed + added_move_speed;
         pwm_m5 = -PID_yaw + throttle + 1500 + move_speed + added_move_speed;
     }
-    else if (cont_direc == 4) //right
+    else if (cont_direc == 4) // right
     {
         pwm_m1 = -PID_yaw - throttle + 1500 - move_speed - added_move_speed;
         pwm_m2 = -PID_yaw + throttle + 1500 + move_speed - added_move_speed;
         pwm_m4 = -PID_yaw - throttle + 1500 + move_speed + added_move_speed;
         pwm_m5 = -PID_yaw + throttle + 1500 - move_speed + added_move_speed;
     }
-    else if (cont_direc == 5) //concon
+    else if (cont_direc == 5) // concon
     {
-        //costheta = (object_x-320)/sqrt((object_x-320)*(object_x-320)+(object_y-240)*(object_y-240));
-        //sintheta = (240-object_y)/sqrt((object_x-320)*(object_x-320)+(object_y-240)*(object_y-240));
+        // costheta = (object_x-320)/sqrt((object_x-320)*(object_x-320)+(object_y-240)*(object_y-240));
+        // sintheta = (240-object_y)/sqrt((object_x-320)*(object_x-320)+(object_y-240)*(object_y-240));
 
         costheta = (object_x - CAMERA_WIDTH / 2) / 300;
         sintheta = (CAMERA_HEIGHT / 2 - object_y) / 300;
@@ -863,10 +689,10 @@ void PID_control_yaw()
         pwm_m5 = -PID_yaw + throttle + 1500 - (float)move_speed * (costheta + sintheta);
     }
 
-    //pwm_m1 = constrain(pwm_m1, 1100, 1500);
-    //pwm_m2 = constrain(pwm_m2, 1500, 1900);
-    //pwm_m4 = constrain(pwm_m4, 1100, 1500);
-    //pwm_m5 = constrain(pwm_m5, 1500, 1900);
+    // pwm_m1 = constrain(pwm_m1, 1100, 1500);
+    // pwm_m2 = constrain(pwm_m2, 1500, 1900);
+    // pwm_m4 = constrain(pwm_m4, 1100, 1500);
+    // pwm_m5 = constrain(pwm_m5, 1500, 1900);
 
     pwm_m1 = constrain(pwm_m1, 1100, 1900);
     pwm_m2 = constrain(pwm_m2, 1100, 1900);
@@ -895,8 +721,8 @@ void PID_control_depth()
     pwm_m0 = constrain(pwm_m0, 1100, 1900);
     pwm_m3 = constrain(pwm_m3, 1100, 1900);
 
-    //esc_input(0x02, pwm_m0, pwm_m1, pwm_m2);
-    //esc_input(0x03, pwm_m3, pwm_m4, pwm_m5);
+    // esc_input(0x02, pwm_m0, pwm_m1, pwm_m2);
+    // esc_input(0x03, pwm_m3, pwm_m4, pwm_m5);
 
     error_pid_depth1 = error_pid_depth;
 }
@@ -925,290 +751,5 @@ void esc_input(uint8_t ID, uint16_t pwm0, uint16_t pwm1, uint16_t pwm2)
 
         thruster_msg.data = (pwm2 - 1500) * -1;
         pub_thruster2_ptr->publish(thruster_msg);
-    }
-}
-
-void recovery_cont()
-{
-
-    if (ipcam_qr_valid == 1)
-    {
-        if (ipcam_qr_z > 0.5)
-        {
-            added_move_speed = 10;
-            yaw_stage = 0;
-            move_speed = 20;
-            if (ipcam_qr_x > 0.01)
-            {
-                cont_direc = 3;
-                //left
-            }
-            else if (ipcam_qr_x < -0.01)
-            {
-                cont_direc = 4;
-                //right
-            }
-            else
-            {
-                cont_direc = 2;
-                //forward
-                if (ipcam_qr_yaw > 0.01)
-                {
-                    desired_angle_yaw -= 0.005;
-                }
-                else if (ipcam_qr_yaw < -0.01)
-                {
-                    desired_angle_yaw += 0.005;
-                }
-            }
-
-            if (ipcam_qr_y > -0.02)
-            {
-                desired_angle_depth -= 0.001;
-            }
-            else if (ipcam_qr_y < -0.04)
-            {
-                desired_angle_depth += 0.001;
-            }
-        }
-        else if (yaw_stage == 0) //<0.5
-        {
-            added_move_speed = 10;
-            move_speed = 30;
-            if (ipcam_qr_x > 0.01)
-            {
-                cont_direc = 3;
-                //left
-            }
-            else if (ipcam_qr_x < -0.01)
-            {
-                cont_direc = 4;
-                //right
-            }
-            else
-            {
-                cont_direc = 0;
-                //forward
-                if (ipcam_qr_yaw > 0.01)
-                {
-                    desired_angle_yaw -= 0.001;
-                }
-                else if (ipcam_qr_yaw < -0.01)
-                {
-                    desired_angle_yaw += 0.001;
-                }
-                else
-                {
-                    yaw_stage = 1;
-                }
-            }
-
-            if (ipcam_qr_y > -0.02)
-            {
-                desired_angle_depth -= 0.001;
-            }
-            else if (ipcam_qr_y < -0.04)
-            {
-                desired_angle_depth += 0.001;
-            }
-        }
-        else if (yaw_stage == 1) //<0.5
-        {
-            added_move_speed = 10;
-            if (ipcam_qr_x > 0.001)
-            {
-                move_speed = 20;
-                cont_direc = 3;
-                //left
-            }
-            else if (ipcam_qr_x < -0.001)
-            {
-                move_speed = 20;
-                cont_direc = 4;
-                //right
-            }
-            else
-            {
-                move_speed = 40;
-                cont_direc = 2;
-                //forward
-                if (ipcam_qr_yaw > 0.1)
-                {
-                    desired_angle_yaw -= 0.001;
-                }
-                else if (ipcam_qr_yaw < -0.1)
-                {
-                    desired_angle_yaw += 0.001;
-                }
-            }
-            if (ipcam_qr_z >= 0.2)
-            {
-                if (ipcam_qr_y > -0.01)
-                {
-                    desired_angle_depth -= 0.001;
-                }
-                else if (ipcam_qr_y < -0.03)
-                {
-                    desired_angle_depth += 0.001;
-                }
-            }
-
-            else if (ipcam_qr_z < 0.17)
-            {
-                added_move_speed = 0;
-                move_speed = 50;
-                cont_direc = 2;
-                if (ipcam_qr_y > 0.01)
-                {
-                    desired_angle_depth -= 0.001;
-                }
-                else if (ipcam_qr_y < -0.01)
-                {
-                    desired_angle_depth += 0.001;
-                }
-            }
-            else if (ipcam_qr_z < 0.2)
-            {
-                added_move_speed = 10;
-                if (ipcam_qr_y > 0.0)
-                {
-                    desired_angle_depth -= 0.001;
-                }
-                else if (ipcam_qr_y < -0.02)
-                {
-                    desired_angle_depth += 0.001;
-                }
-            }
-        }
-    }
-}
-int target_count = 0;
-
-void target_cont()
-{
-    int finish_z = 0;
-    if (target_count == 0)
-    {
-        if (usbl_z < target_usbl_z - 0.2)
-        {
-            desired_angle_depth += 0.02;
-        }
-        else if (usbl_z > target_usbl_z + 0.2)
-        {
-            desired_angle_depth -= 0.02;
-        }
-        else if (usbl_z > target_usbl_z + 0.05)
-        {
-            desired_angle_depth -= 0.01;
-        }
-        else if (usbl_z > target_usbl_z + 0.05)
-        {
-            desired_angle_depth -= 0.01;
-        }
-        else
-        {
-            finish_z = 1;
-        }
-
-        if (usbl_x < target_usbl_x - 0.1)
-        {
-            move_speed = 20;
-            cont_direc = 2;
-        }
-        else if (usbl_x > target_usbl_x + 0.1)
-        {
-            move_speed = 20;
-            cont_direc = 1;
-        }
-        else
-        {
-            if (usbl_y > target_usbl_y + 0.05)
-            {
-                move_speed = 20;
-                cont_direc = 3;
-            }
-            else if (usbl_y < target_usbl_y - 0.05)
-            {
-                move_speed = 20;
-                cont_direc = 4;
-            }
-            else
-            {
-                if (finish_z == 1)
-                {
-                    cont_target = 0;
-                    cont_direc = 0;
-                    target_end_count++;
-                }
-            }
-        }
-    }
-    else if (target_count == 12)
-    {
-        if (usbl_z < target_usbl_z - 0.2)
-        {
-            desired_angle_depth += 0.02;
-        }
-        else if (usbl_z > target_usbl_z + 0.2)
-        {
-            desired_angle_depth -= 0.02;
-        }
-        else if (usbl_z > target_usbl_z + 0.05)
-        {
-            desired_angle_depth -= 0.01;
-        }
-        else if (usbl_z > target_usbl_z + 0.05)
-        {
-            desired_angle_depth -= 0.01;
-        }
-        else
-        {
-            finish_z = 1;
-        }
-
-        if (usbl_y > target_usbl_y + 0.05)
-        {
-            move_speed = 20;
-            cont_direc = 3;
-        }
-        else if (usbl_y < target_usbl_y - 0.05)
-        {
-            move_speed = 20;
-            cont_direc = 4;
-        }
-        else
-        {
-            if (usbl_x < target_usbl_x - 0.1)
-            {
-                move_speed = 20;
-                cont_direc = 2;
-            }
-            else if (usbl_x > target_usbl_x + 0.1)
-            {
-                move_speed = 20;
-                cont_direc = 1;
-            }
-            else
-            {
-                if (finish_z == 1)
-                {
-                    cont_target = 0;
-                    cont_direc = 0;
-                    target_end_count++;
-                }
-            }
-        }
-    }
-
-    if (target_end_count > 100) //4 seconds
-    {
-        target_end_count = 0;
-        cont_target = 0;
-    }
-
-    target_count++;
-    if (target_count > 25)
-    {
-        target_count = 0;
     }
 }
